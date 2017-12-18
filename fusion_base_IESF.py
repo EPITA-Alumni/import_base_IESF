@@ -1,8 +1,13 @@
-#! /usr/bin/env python
+#! /usr/bin/env python3
 # -*- coding: iso-8859-1 -*-
 """
 Synchronisation de la base des anciens avec celle de l'IESF pour soumission
 des nouveaux anciens à l'IESF
+
+https://repertoire.iesf.fr/import-diplomes
+
+Script en UTF-8 mais doit être lancé dans un terminal ISO-8859-1
+
 """
 from __future__ import print_function
 import sys
@@ -26,15 +31,21 @@ def importBaseIESF(bIESF):
     
     """
     out = {}
+    out_ignore = []
     lectureCSV = csv.reader(bIESF, delimiter=';')
 
     row = lectureCSV # consomation de la première ligne 
     
     for row in lectureCSV:
-        out[row[11]] = row
-    return out 
+        if out.get(row[11], False):
+            print ("Erreur : doublon ", row[11])
+            out_ignore.append(row[0])
+        else:
+            out[row[11]] = row
+    print (out_ignore)
+    return (out, out_ignore)
 
-def importBaseAnciens(bAnciens, BaseAFusionner):
+def importBaseAnciens(bAnciens, BaseAFusionner, exclusion):
     """
     import de la base existante dans un dictionnaire indéxé par l'identifiant unique de l'ancien
     (numéro d'ancien coté école)
@@ -43,13 +54,11 @@ def importBaseAnciens(bAnciens, BaseAFusionner):
     "no_personne";"date_crea";"date_modif";"modifie_par";"sexe";"classe";"login";"password";"statut";"dernier_login";"si_npai";"nom";"nom_jeune_fille";"prenom";"vit_avec";"promo";"coache_par";"type";"type_str";"situation";"si_major";"date_naissance";"lieu_naissance";"si_deces";"date_deces";"date_retraite";"perso_parent";"perso_rue_1";"perso_rue_2";"perso_ville";"perso_cp";"perso_pays";"perso_region";"perso_tel";"perso_fax";"perso_gsm";"perso_email";"perso_url";"perso_blog";"perso_skype";"perso_date_modif";"perso_modifie_par";"pro_organisation";"organisation_desc";"organisation_naf";"pro_fonction";"pro_fonction_desc";"pro_secteur";"pro_rue_1";"pro_rue_2";"pro_ville";"pro_cp";"pro_pays";"pro_region";"pro_tel";"pro_fax";"pro_gsm";"pro_email";"pro_date_modif";"pro_modifie_par";"pro_url";"pro_desc";"pro_situation";"pro_position";"ben_organisation";"ben_fonction_desc";"ben_activite";"ben_rue_1";"ben_rue_2";"ben_ville";"ben_cp";"ben_pays";"ben_region";"ben_tel";"ben_fax";"ben_email";"ben_desc";"parent_civilite";"parent_nom";"parent_rue_1";"parent_rue_2";"parent_ville";"parent_cp";"parent_pays";"parent_tel";"parent_email";"abo_liste_promo";"abo_revue";"email4life";"email4life_addr";"diplomes";"nationalite";"commentaires";"pro_commentaires";"profil_type";"profil_cible";"lang";"mailing_coord";"contact_coord";"si_portailrh";"prelev_auto";"rib";"date_modif_bouge";"est_delegue_promo";"est_delegue_organisation";"est_delegue_region";"--FIN DE LIGNE--"
     
     """
-    exclusion = ["10001", "10002"]
-
     baseFinale = []
 
     lectureCSV = csv.reader(bAnciens, delimiter=';')
 
-    row = lectureCSV.next() # consomation de la première ligne 
+    row = next(lectureCSV) # consomation de la première ligne 
     # Création des index
     index_enreg = {}
     index_champ = 0
@@ -93,12 +102,19 @@ def importBaseAnciens(bAnciens, BaseAFusionner):
             else:
                 siDeces = ""
 
-            if BaseAFusionner.has_key(numAncien):
+            if numAncien in BaseAFusionner: # == .has_key(numAncien):
                 if dateNaiss and BaseAFusionner[numAncien][4] == "":
                     BaseAFusionner[numAncien][4] = dateNaiss
                 if promo.endswith("-MASTERS"):
                     BaseAFusionner[numAncien][7] = annee
+                    BaseAFusionner[numAncien][8] = "Master en Sciences et Technologies, mention Informatique (code RNCP: 24680)"
                     BaseAFusionner[numAncien][9] = "MS"
+                elif int(annee) < 2010:
+                    BaseAFusionner[numAncien][7] = annee
+                    BaseAFusionner[numAncien][8] = "Expert en ingénierie informatique (code RNCP: 2164)"
+                    BaseAFusionner[numAncien][9] = "MS"
+                else:
+                    BaseAFusionner[numAncien][8] = "6000686"
                 baseFinale.append(BaseAFusionner[numAncien])
             else:
                 codeSISE = ""
@@ -108,8 +124,13 @@ def importBaseAnciens(bAnciens, BaseAFusionner):
                 if promo.endswith("-MASTERS"):
                     promo = annee
                     formation = "MS"
+                    codeSISE = "Master en Sciences et Technologies, mention Informatique (code RNCP: 24680)" 
+                elif int(annee) < 2010:
+                    promo = annee
+                    formation = "MS"
+                    codeSISE = "Expert en ingénierie informatique (code RNCP: 2164)"
                 else:
-                    pass
+                    codeSISE = "6000686"
                 titreThese = ""
    
                 baseFinale.append(["", nomUsage, nom, prenom, dateNaiss, siDeces, numEcole, promo, codeSISE, formation, titreThese, numAncien])
@@ -138,12 +159,21 @@ def main():
 
     args = parser.parse_args()
 
-    baseFusionnee = importBaseIESF(args.bIESF)
-    baseFinale = importBaseAnciens(args.bAnciens, baseFusionnee)
+    exclusion = ["10001", "10002",
+           # Numéro des anciens ayant demandé à ne pas y figurer
+           '12705'
+    ]
+
+    baseFusionnee, baseIgnoree = importBaseIESF(args.bIESF)
+    baseFinale = importBaseAnciens(args.bAnciens, baseFusionnee, exclusion)
 
     writer = csv.writer(args.bResultat, delimiter=';')
     writer.writerows(baseFinale)
 
+#    file_ignore = open('ignorer.txt', 'w')
+#    for ignore_elt in baseIgnoree:
+#        file_ignore.write(ignore_elt + "\n")
+#    file_ignore.close()
 
 if __name__ == "__main__":
     main()
