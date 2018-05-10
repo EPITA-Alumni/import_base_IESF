@@ -84,11 +84,11 @@ def importBaseAnciens(bAnciens, BaseAFusionner, exclusion):
     
             prenom = row[index_enreg['prenom']]
             if row[index_enreg['nom_jeune_fille']]:
-                nom = row[index_enreg['nom_jeune_fille']]
-                nomUsage = row[index_enreg['nom']]
+                nom = row[index_enreg['nom_jeune_fille']].strip()
+                nomUsage = row[index_enreg['nom']].strip()
             else:
                 nom = ""
-                nomUsage = row[index_enreg['nom']]
+                nomUsage = row[index_enreg['nom']].strip()
 
 
     
