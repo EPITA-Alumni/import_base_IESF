@@ -25,24 +25,30 @@ def importBaseIESF(bIESF):
 
     format CSV :
     N°IESF;Nom d'usage;Nom de famille;Prénom;Date de naissance (JJ/MM/AAAA);Décédé;N°école ou UAI;Promotion;Code SISE;Formation;Titre thèse;Numéro ingénieur association
+    N°IESF;Nom d'usage;Nom de famille;Prénom;Date de naissance (JJ/MM/AAAA);Décédé;N°école ou UAI;Promotion;Type;Code SISE;Formation;Titre thèse;Numéro ingénieur association
+
+    Décédé : Oui
+    Promotion : AAAA
+    type : S ou E (promotion de Sortie ou promotion d'Entrée)
+    Formation : ID ou MS ou DS
 
     ancien format CSV (avant 2017) :
     NEW;N° association;N° école associée ou Code UAI pour université;Nom d'usage (ex nom de famille);Nom de famille (ex nom de JF);Prénom;Date naissance;Millésime promotion;N° ingénieur asso;N° ingénieur IESF;Mot de passe;Statut;Code SISE pour université;Titre Thèse pour université
-    
+
     """
     out = {}
     out_ignore = []
     lectureCSV = csv.reader(bIESF, delimiter=';')
 
-    row = lectureCSV # consomation de la première ligne 
-    
+    row = lectureCSV # consomation de la première ligne
+
     for row in lectureCSV:
-        if out.get(row[11], False):
-            print ("Erreur : doublon ", row[11])
+        if out.get(row[12], False):
+            print ("Erreur : doublon '", str(row), "'", file=sys.stderr)
             out_ignore.append(row[0])
         else:
-            out[row[11]] = row
-    print (out_ignore)
+            out[row[12]] = row
+    print ("Doublons a ignorer : %s" % (out_ignore), file=sys.stderr)
     return (out, out_ignore)
 
 def importBaseAnciens(bAnciens, BaseAFusionner, exclusion):
@@ -52,13 +58,13 @@ def importBaseAnciens(bAnciens, BaseAFusionner, exclusion):
 
     Format actuel (2015)
     "no_personne";"date_crea";"date_modif";"modifie_par";"sexe";"classe";"login";"password";"statut";"dernier_login";"si_npai";"nom";"nom_jeune_fille";"prenom";"vit_avec";"promo";"coache_par";"type";"type_str";"situation";"si_major";"date_naissance";"lieu_naissance";"si_deces";"date_deces";"date_retraite";"perso_parent";"perso_rue_1";"perso_rue_2";"perso_ville";"perso_cp";"perso_pays";"perso_region";"perso_tel";"perso_fax";"perso_gsm";"perso_email";"perso_url";"perso_blog";"perso_skype";"perso_date_modif";"perso_modifie_par";"pro_organisation";"organisation_desc";"organisation_naf";"pro_fonction";"pro_fonction_desc";"pro_secteur";"pro_rue_1";"pro_rue_2";"pro_ville";"pro_cp";"pro_pays";"pro_region";"pro_tel";"pro_fax";"pro_gsm";"pro_email";"pro_date_modif";"pro_modifie_par";"pro_url";"pro_desc";"pro_situation";"pro_position";"ben_organisation";"ben_fonction_desc";"ben_activite";"ben_rue_1";"ben_rue_2";"ben_ville";"ben_cp";"ben_pays";"ben_region";"ben_tel";"ben_fax";"ben_email";"ben_desc";"parent_civilite";"parent_nom";"parent_rue_1";"parent_rue_2";"parent_ville";"parent_cp";"parent_pays";"parent_tel";"parent_email";"abo_liste_promo";"abo_revue";"email4life";"email4life_addr";"diplomes";"nationalite";"commentaires";"pro_commentaires";"profil_type";"profil_cible";"lang";"mailing_coord";"contact_coord";"si_portailrh";"prelev_auto";"rib";"date_modif_bouge";"est_delegue_promo";"est_delegue_organisation";"est_delegue_region";"--FIN DE LIGNE--"
-    
+
     """
     baseFinale = []
 
     lectureCSV = csv.reader(bAnciens, delimiter=';')
 
-    row = next(lectureCSV) # consomation de la première ligne 
+    row = next(lectureCSV) # consomation de la première ligne
     # Création des index
     index_enreg = {}
     index_champ = 0
@@ -75,13 +81,13 @@ def importBaseAnciens(bAnciens, BaseAFusionner, exclusion):
         if promo.endswith("-MASTERS"):
             annee = promo.split("-")[0]
 
-        if numAncien in exclusion or row[index_enreg['classe']] in ["Elève", "Partenaire", "Public"] or promo == "0000" or int(annee) >= datetime.datetime.now().year:
-            print("ignore %s" % numAncien, file=sys.stderr)
+        if numAncien in exclusion or row[index_enreg['classe']] in ["Elève", "Partenaire"] or promo == "0000" or int(annee) >= datetime.datetime.now().year:# , "Public"
+            print("ignore %s (%s %s %s, type %s)" % (numAncien, row[index_enreg['prenom']], row[index_enreg['nom']].strip(), promo, row[index_enreg['classe']]), file=sys.stderr)
         else:
-    
+
             if dateNaiss == "00/00/0000":
                 dateNaiss = ""
-    
+
             prenom = row[index_enreg['prenom']]
             if row[index_enreg['nom_jeune_fille']]:
                 nom = row[index_enreg['nom_jeune_fille']].strip()
@@ -90,10 +96,8 @@ def importBaseAnciens(bAnciens, BaseAFusionner, exclusion):
                 nom = ""
                 nomUsage = row[index_enreg['nom']].strip()
 
-
-    
-            if row[index_enreg['classe']] not in ["Ancien", "Membre du CA", "Permanent", "Administrateur informatique"]:
-                print("A vérifier=%s (%s : %s %s)" % (numAncien, row[index_enreg['classe']], nom, prenom), file=sys.stderr)
+            if row[index_enreg['classe']] not in ["Public", "Ancien", "Membre du CA", "Permanent", "Administrateur informatique"]:
+                print("A vérifier=%s (%s : %s %s)" % (numAncien, row[index_enreg['classe']], nomUsage, prenom), file=sys.stderr)
                 continue
 
             siDeces = row[index_enreg['si_deces']]
@@ -103,40 +107,51 @@ def importBaseAnciens(bAnciens, BaseAFusionner, exclusion):
                 siDeces = ""
 
             if numAncien in BaseAFusionner: # == .has_key(numAncien):
+                # Ancien déjà existant dans le répertoire IESF
+                print ("Ancien existant=%s (%s) : %s" % (numAncien,BaseAFusionner[numAncien][0], row[index_enreg['type_str']]), file=sys.stderr)
                 if dateNaiss and BaseAFusionner[numAncien][4] == "":
                     BaseAFusionner[numAncien][4] = dateNaiss
-                if promo.endswith("-MASTERS"):
-                    BaseAFusionner[numAncien][7] = annee
-                    BaseAFusionner[numAncien][8] = "Master en Sciences et Technologies, mention Informatique (code RNCP: 24680)"
-                    BaseAFusionner[numAncien][9] = "MS"
-                elif int(annee) < 2010:
-                    BaseAFusionner[numAncien][7] = annee
-                    BaseAFusionner[numAncien][8] = "Expert en ingénierie informatique (code RNCP: 2164)"
-                    BaseAFusionner[numAncien][9] = "MS"
-                else:
-                    BaseAFusionner[numAncien][8] = "6000686"
+                (codeSISE, typeDiplome) = determinerDiplome(annee, promo, row[index_enreg['type']])
+
+                BaseAFusionner[numAncien][7] = annee
+                BaseAFusionner[numAncien][8] = "S"
+                BaseAFusionner[numAncien][9] = codeSISE
+                BaseAFusionner[numAncien][10] = typeDiplome
+
                 baseFinale.append(BaseAFusionner[numAncien])
             else:
-                codeSISE = ""
+                print("Ancien inexistant=%s - ajout" % (numAncien), file=sys.stderr)
+                # Ajout d'un ancien inexistant
                 numEcole = 410
-                formation = "ID"
                 # ID, MS, DS
-                if promo.endswith("-MASTERS"):
-                    promo = annee
-                    formation = "MS"
-                    codeSISE = "Master en Sciences et Technologies, mention Informatique (code RNCP: 24680)" 
-                elif int(annee) < 2010:
-                    promo = annee
-                    formation = "MS"
-                    codeSISE = "Expert en ingénierie informatique (code RNCP: 2164)"
-                else:
-                    codeSISE = "6000686"
+                (codeSISE, formation) = determinerDiplome(annee, promo, row[index_enreg['type']])
                 titreThese = ""
-   
-                baseFinale.append(["", nomUsage, nom, prenom, dateNaiss, siDeces, numEcole, promo, codeSISE, formation, titreThese, numAncien])
+                typeNumPromo = "S" # numero de promo de sortie
+
+                baseFinale.append(["", nomUsage, nom, prenom, dateNaiss, siDeces, numEcole, promo, typeNumPromo, codeSISE, formation, titreThese, numAncien])
     return baseFinale
 
 
+def determinerDiplome(annee, promo, typeDiplome):
+    codeSISE = "6000686"
+    formation = "ID"
+
+    if promo.endswith("-MASTERS"):
+        codeSISE = "R024680" #Master en Sciences et Technologies, mention Informatique (code RNCP: 24680)
+        formation = "MS"
+    elif int(annee) < 2010 or typeDiplome.startswith("Expert - "):# /pour debug pas de mutualisation/ or typeDiplome.startswith("Expert en"):
+        codeSISE = "R002164" #Expert en ingénierie informatique (code RNCP: 2164)
+        formation = "MS"
+    elif typeDiplome.startswith("Expert en"):
+        #print("EXPERT detecté : %s / %s" % (promo, typeDiplome))
+        codeSISE = "R002164" #Expert en ingénierie informatique (code RNCP: 2164)
+        formation = "MS"
+    elif typeDiplome.startswith("Master"):
+        codeSISE = "R024680" #Master en Sciences et Technologies, mention Informatique (code RNCP: 24680)
+        formation = "MS"
+    #else:
+    #    print("Choix par défaut ingé : %s / %s" % (promo, typeDiplome))
+    return (codeSISE, formation)
 
 
 def main():
@@ -159,7 +174,7 @@ def main():
 
     args = parser.parse_args()
 
-    exclusion = ["10001", "10002",
+    exclusion = ["10001", "10002", "18174",
            # Numéro des anciens ayant demandé à ne pas y figurer
            '12705'
     ]
